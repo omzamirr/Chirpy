@@ -15,16 +15,22 @@ func main() {
 		Handler: mux,
 	}
 
-	//mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	//})
+	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("."))))
+	mux.HandleFunc("/healthz", handlerReadiness)
 
-	fmt.Println("Server is startin on http://localhost:8080")
+	fmt.Println("Server is starting on http://localhost:8080")
 
 	err := server.ListenAndServe()
 	if err != nil {
     	log.Fatal(err)
 	}
 
+}
+
+func handlerReadiness(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
 
 
