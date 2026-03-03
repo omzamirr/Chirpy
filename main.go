@@ -4,7 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"log"
+	"sync/atomic"
 )
+
+
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
 
 
 func main() {
@@ -15,8 +21,12 @@ func main() {
 		Handler: mux,
 	}
 
-	mux.Handle("/app/", http.StripPrefix("/app/", http.FileServer(http.Dir("."))))
+	apiCfg := &apiConfig{}
+
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("/healthz", handlerReadiness)
+	mux.HandleFunc("/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("/reset", apiCfg.handlerReset)
 
 	fmt.Println("Server is starting on http://localhost:8080")
 
@@ -27,12 +37,18 @@ func main() {
 
 }
 
-func handlerReadiness(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(http.StatusText(http.StatusOK)))
+
+func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.fileserverHits.Add(1)
+		next.ServeHTTP(w, r)
+	})
 }
 
+
+func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte(fmt.Sprintf("Hits: %v", cfg.fileserverHits.Load())))
+}
 
 
 
