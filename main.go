@@ -14,6 +14,7 @@ type apiConfig struct {
 
 
 func main() {
+
 	mux := http.NewServeMux()
 
 	server := &http.Server{
@@ -24,9 +25,10 @@ func main() {
 	apiCfg := &apiConfig{}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /healthz", handlerReadiness)
-	mux.HandleFunc("GET /metrics", apiCfg.handlerMetrics)
-	mux.HandleFunc("POST /reset", apiCfg.handlerReset)
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
+	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
+	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
 
 	fmt.Println("Server is starting on http://localhost:8080")
 
@@ -47,7 +49,13 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 
 
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(fmt.Sprintf("Hits: %v", cfg.fileserverHits.Load())))
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
+    w.Write([]byte(fmt.Sprintf(`<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`, cfg.fileserverHits.Load())))
 }
 
 
