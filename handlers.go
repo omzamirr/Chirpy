@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"encoding/json"
 	"log"
+	"strings"
 	
 )
 
@@ -38,7 +39,31 @@ func handlerValidateChirp(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(400)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "Chirp is too long"}) 
 	} else {
-		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(ValidResponse{Valid: true})
+		cleaned := handlerFilterProfanity(params.Body)
+		json.NewEncoder(w).Encode(CleanedBody{Clean: cleaned})
 	}
+}
+
+
+type CleanedBody struct {
+	Clean string `json:"cleaned_body"`
+}
+
+
+var badWords = []string{"kerfuffle", "sharbert", "fornax"}
+
+
+func handlerFilterProfanity(body string) string {
+	words := strings.Split(body, " ")
+	for i, word := range words {
+		for _, badWord := range badWords {
+			if strings.ToLower(word) == badWord {
+				words[i] = strings.Repeat("*", 4)
+			}
+		}
+	}
+
+	return strings.Join(words, " ")
+
+
 }
