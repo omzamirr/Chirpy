@@ -5,15 +5,38 @@ import (
 	"net/http"
 	"log"
 	"sync/atomic"
+
+	_ "github.com/lib/pq"
+	"github.com/joho/godotenv"
+	"os"
+	"database/sql"
+	"github.com/omzamirr/HttpServer/internal/database"
+
 )
 
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
 }
 
 
 func main() {
+
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading the .env file")
+	}
+
+	dbURL := os.Getenv("DB_URL")
+
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Error opening dbURL")
+	}
+
+	dbQueries := database.New(db)
+
 
 	mux := http.NewServeMux()
 
@@ -22,7 +45,9 @@ func main() {
 		Handler: mux,
 	}
 
-	apiCfg := &apiConfig{}
+	apiCfg := &apiConfig{
+    	db: dbQueries,
+	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
@@ -32,7 +57,7 @@ func main() {
 
 	fmt.Println("Server is starting on http://localhost:8080")
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
     	log.Fatal(err)
 	}

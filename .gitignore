@@ -1,3 +1,4 @@
 # Binaries and executables
 out
 HttpServer
+.env
