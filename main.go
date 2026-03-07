@@ -18,6 +18,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
+	platform       string
 }
 
 
@@ -29,6 +30,7 @@ func main() {
 	}
 
 	dbURL := os.Getenv("DB_URL")
+	platForm := os.Getenv("PLATFORM")
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -36,7 +38,6 @@ func main() {
 	}
 
 	dbQueries := database.New(db)
-
 
 	mux := http.NewServeMux()
 
@@ -46,14 +47,17 @@ func main() {
 	}
 
 	apiCfg := &apiConfig{
-    	db: dbQueries,
+    	db:       dbQueries,
+		platform: platForm,
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerReset)
+	mux.HandleFunc("POST /api/users", apiCfg.handlerRegister)
 	mux.HandleFunc("POST /api/validate_chirp", handlerValidateChirp)
+
 
 	fmt.Println("Server is starting on http://localhost:8080")
 
