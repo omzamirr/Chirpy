@@ -67,5 +67,34 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 }
 
 
+func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
+
+	allChirps, err := cfg.db.GetAllChirps(r.Context())
+
+	if err != nil {
+		log.Printf("Error getting all chirps: %s", err)
+    	json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not not get all chirps"})
+    	return
+	}
+
+	responseChirps := []Chirp{}
+
+	for _, dbChirp := range allChirps {
+		responseChirps = append(responseChirps, Chirp{
+			ID:        dbChirp.ID,
+			CreatedAt: dbChirp.CreatedAt,
+			UpdatedAt: dbChirp.UpdatedAt,
+			Body:      dbChirp.Body,
+			UserID:    dbChirp.UserID,
+		})
+	}
+
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(responseChirps)
+
+
+}
+
+
 
 
