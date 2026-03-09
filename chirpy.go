@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"github.com/google/uuid"
 	"github.com/omzamirr/HttpServer/internal/database"
+	"database/sql"
+    "errors"
 )
 
 
@@ -96,5 +98,35 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 }
 
 
+func (cfg *apiConfig) handlerGetOneChirp(w http.ResponseWriter, r *http.Request) {
+
+	chirpIDString := r.PathValue("chirpID")
+	id, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not retrieve the value of the 'chirpID' path parameter"})
+		return
+	}
+
+	chirp, err := cfg.db.GetOneChirp(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not get the chirp"})
+		return
+	}
+
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(Chirp{
+    	ID:        chirp.ID,
+    	CreatedAt: chirp.CreatedAt,
+    	UpdatedAt: chirp.UpdatedAt,
+    	Body:      chirp.Body,
+    	UserID:    chirp.UserID,
+	})
+}
 
 
