@@ -19,6 +19,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	jwtSecret      string
 }
 
 
@@ -28,7 +29,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading the .env file")
 	}
-
+	
+	jwtSecret := os.Getenv("JWT_SECRET")
 	dbURL := os.Getenv("DB_URL")
 	platForm := os.Getenv("PLATFORM")
 
@@ -49,6 +51,7 @@ func main() {
 	apiCfg := &apiConfig{
     	db:       dbQueries,
 		platform: platForm,
+		jwtSecret: jwtSecret,
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))

@@ -10,12 +10,13 @@ import (
 	"github.com/omzamirr/HttpServer/internal/database"
 	"database/sql"
     "errors"
+	"github.com/omzamirr/HttpServer/internal/auth"
 )
 
 
 type RequestBody struct {
     Body   string    `json:"body"`
-    UserID uuid.UUID `json:"user_id"`
+    
 }
 
 type Chirp struct {
@@ -29,9 +30,23 @@ type Chirp struct {
 
 func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request) {
 
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		log.Printf("Error getting JWT: %s", err)
+		w.WriteHeader(401)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s", err)
+		w.WriteHeader(401)
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := RequestBody{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding parameters: %s", err)
 		w.WriteHeader(400)
@@ -48,7 +63,7 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 	chirp, err := cfg.db.CreateChirp(r.Context(), database.CreateChirpParams{
     	Body:   cleanedBody,
-    	UserID: params.UserID,
+    	UserID: userID,
 	})
 
 	if err != nil {
