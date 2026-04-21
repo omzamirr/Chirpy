@@ -2,22 +2,24 @@ package main
 
 
 import (
+    "context"
     "encoding/json"
     "log"
     "net/http"
     "time"
-	"github.com/omzamirr/HttpServer/internal/database"
+    "github.com/omzamirr/HttpServer/internal/database"
     "github.com/google/uuid"
-	"github.com/omzamirr/HttpServer/internal/auth"
+    "github.com/omzamirr/HttpServer/internal/auth"
 )
 
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token string `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 
@@ -73,7 +75,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email            string `json:"email"`
 		Password         string `json:"password"`
-		ExpiresInSeconds int `json:"expires_in_seconds"`
+		
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -98,18 +100,29 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresInSeconds := params.ExpiresInSeconds
-	if expiresInSeconds <= 0 {
-		expiresInSeconds = 3600
-	}
-	if expiresInSeconds > 3600 {
-		expiresInSeconds = 3600
-	}
-	expiresIn := time.Duration(expiresInSeconds) * time.Second
+	expiresIn := time.Hour
 
 	token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 	if err != nil {
 		log.Printf("Error creating JWT: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	_, err = cfg.db.CreateRefreshToken(context.Background(), database.CreateRefreshTokenParams{
+		Token:    refreshToken,
+		UserID:   user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
+	})
+
+	if err != nil {
+		log.Printf("Could not refresh token: %s", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -120,6 +133,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: user.UpdatedAt,
 		Email:     user.Email,
 		Token:     token,
+		RefreshToken: refreshToken,
 	}
 
 	w.WriteHeader(200)
