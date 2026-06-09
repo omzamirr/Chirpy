@@ -146,12 +146,14 @@ func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-    	respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
+    	log.Printf("Couldn't find JWT: %s", err)
+    	w.WriteHeader(401)
     	return
 	}
 	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil {
-    	respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
+		log.Printf("Couldn't validate JWT: %s", err)
+    	w.WriteHeader(401)
     	return
 	}
 
@@ -169,5 +171,36 @@ func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
+	hashedValue, err := auth.HashPassword(params.Password)
+	if err != nil {
+		log.Printf("Error hashing password: %s", err)
+		w.WriteHeader(500)
+		return
+		}
 	
-}
+	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+    	Email:          params.Email,
+    	HashedPassword: hashedValue,
+		})
+
+		if err != nil {
+			log.Printf("could not hash the password: %s", err)
+			w.WriteHeader(500)
+			return
+		}
+
+		responseUser := User{
+    		ID:        user.ID,
+    		CreatedAt: user.CreatedAt,
+    		UpdatedAt: user.UpdatedAt,
+    		Email:     user.Email,
+		}
+
+		w.WriteHeader(200)
+		json.NewEncoder(w).Encode(responseUser)
+
+	}
+
+
