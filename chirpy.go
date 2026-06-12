@@ -145,3 +145,51 @@ func (cfg *apiConfig) handlerGetOneChirp(w http.ResponseWriter, r *http.Request)
 }
 
 
+func (cfg *apiConfig) handlerDelete(w http.ResponseWriter, r *http.Request) {
+
+	idString := r.PathValue("chirpID")
+
+	parsedID, err := uuid.Parse(idString)
+	if err != nil {
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not parse"})
+		return
+		}
+	
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		w.WriteHeader(401)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not get bearer token"})
+		return
+	}
+
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("Error validating JWT: %s", err)
+		w.WriteHeader(401)
+		return
+	}
+
+	chirp, err := cfg.db.GetOneChirp(r.Context(), parsedID)
+	if err != nil {
+    	w.WriteHeader(404)
+    	return
+	}
+
+	if chirp.UserID != userID {
+    	w.WriteHeader(http.StatusForbidden) // 403
+    	return
+		}
+
+	err = cfg.db.DeleteChirp(r.Context(), parsedID)
+	if err != nil {
+    	w.WriteHeader(http.StatusInternalServerError) // 500
+    	return
+	}
+
+	w.WriteHeader(http.StatusNoContent) // 204
+	
+}
+
+
+
