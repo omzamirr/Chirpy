@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
 	"sync/atomic"
 
-	_ "github.com/lib/pq"
-	"github.com/joho/godotenv"
-	"os"
 	"database/sql"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"github.com/omzamirr/HttpServer/internal/database"
-
+	"os"
 )
-
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
@@ -22,14 +20,13 @@ type apiConfig struct {
 	jwtSecret      string
 }
 
-
 func main() {
 
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading the .env file")
 	}
-	
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	dbURL := os.Getenv("DB_URL")
 	platForm := os.Getenv("PLATFORM")
@@ -44,13 +41,13 @@ func main() {
 	mux := http.NewServeMux()
 
 	server := &http.Server{
-		Addr:  ":8080",
+		Addr:    ":8080",
 		Handler: mux,
 	}
 
 	apiCfg := &apiConfig{
-    	db:       dbQueries,
-		platform: platForm,
+		db:        dbQueries,
+		platform:  platForm,
 		jwtSecret: jwtSecret,
 	}
 
@@ -68,18 +65,16 @@ func main() {
 	mux.HandleFunc("POST /api/revoke", apiCfg.handlerRevoke)
 	mux.HandleFunc("PUT /api/users", apiCfg.handlerUpdate)
 	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.handlerDelete)
-
-
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.handlerPolkaWebhooks)
 
 	fmt.Println("Server is starting on http://localhost:8080")
 
 	err = server.ListenAndServe()
 	if err != nil {
-    	log.Fatal(err)
+		log.Fatal(err)
 	}
 
 }
-
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,16 +83,12 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
-
 func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "text/html; charset=utf-8")
-    w.Write([]byte(fmt.Sprintf(`<html>
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(fmt.Sprintf(`<html>
   <body>
     <h1>Welcome, Chirpy Admin</h1>
     <p>Chirpy has been visited %d times!</p>
   </body>
 </html>`, cfg.fileserverHits.Load())))
 }
-
-
-

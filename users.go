@@ -1,17 +1,15 @@
-package main 
-
+package main
 
 import (
-    "context"
-    "encoding/json"
-    "log"
-    "net/http"
-    "time"
-    "github.com/omzamirr/HttpServer/internal/database"
-    "github.com/google/uuid"
-    "github.com/omzamirr/HttpServer/internal/auth"
+	"context"
+	"encoding/json"
+	"github.com/google/uuid"
+	"github.com/omzamirr/HttpServer/internal/auth"
+	"github.com/omzamirr/HttpServer/internal/database"
+	"log"
+	"net/http"
+	"time"
 )
-
 
 type User struct {
 	ID           uuid.UUID `json:"id"`
@@ -20,8 +18,8 @@ type User struct {
 	Email        string    `json:"email"`
 	Token        string    `json:"token"`
 	RefreshToken string    `json:"refresh_token"`
+	IsChirpyRed  bool      `json:"is_chirpy_red"`
 }
-
 
 func (cfg *apiConfig) handlerRegister(w http.ResponseWriter, r *http.Request) {
 
@@ -38,7 +36,7 @@ func (cfg *apiConfig) handlerRegister(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(500)
 		return
 	}
-	
+
 	hashedValue, err := auth.HashPassword(params.Password)
 	if err != nil {
 		log.Printf("Error hashing password: %s", err)
@@ -47,21 +45,22 @@ func (cfg *apiConfig) handlerRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := cfg.db.CreateUser(r.Context(), database.CreateUserParams{
-    	Email:          params.Email,
-    	HashedPassword: hashedValue,
+		Email:          params.Email,
+		HashedPassword: hashedValue,
 	})
 
 	if err != nil {
-    	log.Printf("Error creating user: %s", err)
-    	json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not create user"})
-    	return
+		log.Printf("Error creating user: %s", err)
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not create user"})
+		return
 	}
 
 	responseUser := User{
-    	ID:        user.ID,
-    	CreatedAt: user.CreatedAt,
-    	UpdatedAt: user.UpdatedAt,
-    	Email:     user.Email,
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed,
 	}
 
 	w.WriteHeader(201)
@@ -69,13 +68,11 @@ func (cfg *apiConfig) handlerRegister(w http.ResponseWriter, r *http.Request) {
 
 }
 
-
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 	type parameters struct {
-		Email            string `json:"email"`
-		Password         string `json:"password"`
-		
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -116,8 +113,8 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = cfg.db.CreateRefreshToken(context.Background(), database.CreateRefreshTokenParams{
-		Token:    refreshToken,
-		UserID:   user.ID,
+		Token:     refreshToken,
+		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
 	})
 
@@ -128,33 +125,33 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responseUser := User{
-		ID:        user.ID,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Email:     user.Email,
-		Token:     token,
+		ID:           user.ID,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		Email:        user.Email,
+		Token:        token,
 		RefreshToken: refreshToken,
+		IsChirpyRed:  user.IsChirpyRed,
 	}
 
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode(responseUser)
-	
-}
 
+}
 
 func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-    	log.Printf("Couldn't find JWT: %s", err)
-    	w.WriteHeader(401)
-    	return
+		log.Printf("Couldn't find JWT: %s", err)
+		w.WriteHeader(401)
+		return
 	}
 	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil {
 		log.Printf("Couldn't validate JWT: %s", err)
-    	w.WriteHeader(401)
-    	return
+		w.WriteHeader(401)
+		return
 	}
 
 	type parameters struct {
@@ -171,36 +168,34 @@ func (cfg *apiConfig) handlerUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	hashedValue, err := auth.HashPassword(params.Password)
 	if err != nil {
 		log.Printf("Error hashing password: %s", err)
 		w.WriteHeader(500)
 		return
-		}
-	
-	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
-		ID:             userID,
-    	Email:          params.Email,
-    	HashedPassword: hashedValue,
-		})
-
-		if err != nil {
-			log.Printf("could not hash the password: %s", err)
-			w.WriteHeader(500)
-			return
-		}
-
-		responseUser := User{
-    		ID:        user.ID,
-    		CreatedAt: user.CreatedAt,
-    		UpdatedAt: user.UpdatedAt,
-    		Email:     user.Email,
-		}
-
-		w.WriteHeader(200)
-		json.NewEncoder(w).Encode(responseUser)
-
 	}
 
+	user, err := cfg.db.UpdateUser(r.Context(), database.UpdateUserParams{
+		ID:             userID,
+		Email:          params.Email,
+		HashedPassword: hashedValue,
+	})
 
+	if err != nil {
+		log.Printf("could not hash the password: %s", err)
+		w.WriteHeader(500)
+		return
+	}
+
+	responseUser := User{
+		ID:          user.ID,
+		CreatedAt:   user.CreatedAt,
+		UpdatedAt:   user.UpdatedAt,
+		Email:       user.Email,
+		IsChirpyRed: user.IsChirpyRed,
+	}
+
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(responseUser)
+
+}
