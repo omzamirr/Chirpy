@@ -7,9 +7,25 @@ import (
 	"github.com/google/uuid"
 	"log"
 	"net/http"
+	"github.com/omzamirr/HttpServer/internal/auth"
 )
 
 func (cfg *apiConfig) handlerPolkaWebhooks(w http.ResponseWriter, r *http.Request) {
+
+    apiKey, err := auth.GetAPIKey(r.Header)
+    if err != nil {
+        // If there's an error getting the key (e.g., missing header), return 401
+        w.WriteHeader(http.StatusUnauthorized)
+        return
+    }
+
+    // 2. Validate the key matches our configured polkaKey
+    if apiKey != cfg.polkaKey {
+        // If the key doesn't match, return 401
+        w.WriteHeader(http.StatusUnauthorized)
+        return
+    }
+
 
 	type parameters struct {
 		Event string `json:"event"`
@@ -20,7 +36,7 @@ func (cfg *apiConfig) handlerPolkaWebhooks(w http.ResponseWriter, r *http.Reques
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		log.Printf("Error decoding parameters: %s", err)
 		w.WriteHeader(500)

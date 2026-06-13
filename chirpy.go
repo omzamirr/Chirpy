@@ -86,17 +86,38 @@ func (cfg *apiConfig) handlerCreateChirp(w http.ResponseWriter, r *http.Request)
 
 func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request) {
 
-	allChirps, err := cfg.db.GetAllChirps(r.Context())
+	authorIDString := r.URL.Query().Get("author_id")
+	// 1. Declare a variable to hold the slice of database chirps
+	var dbChirps []database.Chirp
+	var err error
+
+// 2. Check if the query parameter was provided
+	if authorIDString != "" {
+    // Try to parse the string into a UUID
+    	authorID, parseErr := uuid.Parse(authorIDString)
+    	if parseErr != nil {
+        	w.WriteHeader(http.StatusBadRequest)
+        	json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid author ID"})
+        	return
+    }
+    
+    // Fetch chirps only for this specific author
+    	dbChirps, err = cfg.db.GetChirpsByAuthor(r.Context(), authorID)
+		} else {
+    	// Fetch all chirps since no author was specified
+    	dbChirps, err = cfg.db.GetAllChirps(r.Context())
+	}
 
 	if err != nil {
-		log.Printf("Error getting all chirps: %s", err)
-    	json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not not get all chirps"})
+    	log.Printf("Error getting chirps: %s", err)
+    	w.WriteHeader(http.StatusInternalServerError)
+    	json.NewEncoder(w).Encode(ErrorResponse{Error: "Could not get chirps"})
     	return
-	}
+}
 
 	responseChirps := []Chirp{}
 
-	for _, dbChirp := range allChirps {
+	for _, dbChirp := range dbChirps {
 		responseChirps = append(responseChirps, Chirp{
 			ID:        dbChirp.ID,
 			CreatedAt: dbChirp.CreatedAt,

@@ -11,6 +11,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/omzamirr/HttpServer/internal/database"
 	"os"
+	
 )
 
 type apiConfig struct {
@@ -18,6 +19,7 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	jwtSecret      string
+	polkaKey       string
 }
 
 func main() {
@@ -30,6 +32,7 @@ func main() {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	dbURL := os.Getenv("DB_URL")
 	platForm := os.Getenv("PLATFORM")
+	polkaKey := os.Getenv("POLKA_KEY")
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -49,6 +52,8 @@ func main() {
 		db:        dbQueries,
 		platform:  platForm,
 		jwtSecret: jwtSecret,
+		polkaKey:  polkaKey,
+
 	}
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app/", http.FileServer(http.Dir(".")))))
