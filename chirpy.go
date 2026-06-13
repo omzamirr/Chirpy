@@ -11,6 +11,7 @@ import (
 	"database/sql"
     "errors"
 	"github.com/omzamirr/HttpServer/internal/auth"
+	"sort"
 )
 
 
@@ -127,6 +128,21 @@ func (cfg *apiConfig) handlerGetAllChirps(w http.ResponseWriter, r *http.Request
 		})
 	}
 
+	// Default to our fallback value
+	direction := "asc"
+
+	// Extract the query parameter
+	param := r.URL.Query().Get("sort")
+		if param == "desc" {
+    	direction = "desc"
+	}
+
+	sort.Slice(responseChirps, func(i, j int) bool {
+    	if direction == "desc" {
+        	return responseChirps[i].CreatedAt.After(responseChirps[j].CreatedAt)
+    	}
+    	return responseChirps[i].CreatedAt.Before(responseChirps[j].CreatedAt)
+	})
 	w.WriteHeader(200)
 	json.NewEncoder(w).Encode(responseChirps)
 
